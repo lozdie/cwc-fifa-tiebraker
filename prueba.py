@@ -103,6 +103,7 @@ resultados_fijos = {
 }
 #Método clave usando todo lo que la FIFA se inventó
 def desempatar_fifa(equipos, match_results, global_stats, historial=None):
+
     if len(equipos) == 1:
         return equipos
 
@@ -145,15 +146,21 @@ def desempatar_fifa(equipos, match_results, global_stats, historial=None):
         return criterios_d_e(global_stats, equipos)
 
     else:
-        # Desempatar recursivamente si hay empates internos
-        duplicated = sub_df.duplicated(subset=["Puntos", "DG", "GF"], keep=False)
-        if not duplicated.any():
-            return sub_df["Equipo"].tolist()
-        else:
-            empatados = sub_df[duplicated]
-            no_empatados = sub_df[~duplicated]
-            suborden = desempatar_fifa(empatados["Equipo"].tolist(), match_results, global_stats, historial)
-            return no_empatados["Equipo"].tolist() + suborden
+        # Desempatar recursivamente por bloques
+        resultado = []
+        i = 0
+        while i < len(sub_df):
+            bloque = sub_df.iloc[i:i+1]
+            while (i + len(bloque) < len(sub_df) and
+                   (sub_df.iloc[i][["Puntos", "DG", "GF"]] == sub_df.iloc[i + len(bloque)][["Puntos", "DG", "GF"]]).all()):
+                bloque = sub_df.iloc[i:i+len(bloque)+1]
+            if len(bloque) == 1:
+                resultado.append(bloque.iloc[0]["Equipo"])
+            else:
+                bloque_teams = list(bloque["Equipo"])
+                resultado.extend(desempatar_fifa(bloque_teams, match_results, global_stats, historial))
+            i += len(bloque)
+        return resultado
 
 def criterios_d_e(df, equipos_empatados):
     sub_df = df[df["Equipo"].isin(equipos_empatados)].copy()
